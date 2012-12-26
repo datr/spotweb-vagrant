@@ -2,8 +2,13 @@ class { "apt":
   always_apt_update => true,
 }
 
-class { 'mysql': }
-class { 'mysql::server': }
+class { 'mysql':
+  require => Class['apt']
+}
+
+class { 'mysql::server':
+  require => Class['apt']
+}
 
 package { "git":
   require => Class["apt"]
@@ -13,25 +18,33 @@ package { "apache2":
   require => Class["apt"]
 }
 
-package { "mysql":
+package { "php5":
   require => Class["apt"]
 }
 
-exec { "spotweb":
-  command => "sudo git clone https://github.com/spotweb/spotweb.git /var/www/spotweb",
-  require => Package["git-core"],
+package { "php5-mysql":
+  require => [Class["apt"], Package["php5"]]
+}
+
+exec { "git clone https://github.com/spotweb/spotweb.git":
+  alias   => "spotweb",
+  cwd     => "/var/www",
+  path    => "/usr/bin",
+  require => Package['git']
 }
 
 mysql::db { 'spotweb':
-  user     => 'spotwebr',
+  user     => 'spotweb',
   password => 'spotweb',
   host     => 'localhost',
-  grant    => ['all'],
+  grant    => ['all']
 }
 
-exec { "populate-db":
-  command => "cd /var/www/spotweb && /usr/bin/php /var/www/spotweb/upgrade-db.php",
-  require => Package["git-core"],
+exec { "php ./upgrade-db.php":
+  alias   => "populate-db",
+  cwd     => "/var/www/spotweb",
+  path    => "/usr/bin",
+  require => [Exec["spotweb"], Database["spotweb"], Package["php5"]]
 }
 
 file { "/etc/cron.hourly/spotweb_spots":
